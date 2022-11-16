@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<launch>
+    <node name="edge_filter_compressed" pkg="image_viewer" type="read_image_opencv.py"/>
+
+
+
+
+
+    <node pkg="rosbag" type="play" name="play" args="/home/yoshiki/bagfiles/kakunin_2022-09-17-14-03-20/kakunin_2022-09-17-14-03-20.bag" />
+
+    <node pkg="rviz" type="rviz" name="rviz" />
+</launch>
