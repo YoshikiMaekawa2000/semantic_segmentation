@@ -2,6 +2,7 @@
 import rospy
 import cv2
 import sys, os
+# os.getcwd()
 # sys.path.append(os.path.join("/home/yoshiki/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"))
 sys.path.append(os.pardir)
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
@@ -35,8 +36,8 @@ class SemanticSegmentation:
 
         #init_model
         self.bridge = CvBridge()
-        # self.cfg_fpath = "/home/yoshiki/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/config/ade20k-resnet50dilated-ppm_deepsup.yaml"
-        self.cfg_fpath = "config/ade20k-resnet50dilated-ppm_deepsup.yaml"
+        self.cwd = "/home/yoshiki/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"
+        self.cfg_fpath = self.cwd + "config/ade20k-resnet50dilated-ppm_deepsup.yaml"
         self.gpu = 0
         cfg.merge_from_file(self.cfg_fpath)
         # cfg.merge_from_list(args.opts)
@@ -50,9 +51,9 @@ class SemanticSegmentation:
 
         # absolute paths of model weights
         cfg.MODEL.weights_encoder = os.path.join(
-            cfg.DIR, 'encoder_' + cfg.TEST.checkpoint)
+            self.cwd, cfg.DIR, 'encoder_' + cfg.TEST.checkpoint)
         cfg.MODEL.weights_decoder = os.path.join(
-            cfg.DIR, 'decoder_' + cfg.TEST.checkpoint)
+            self.cwd, cfg.DIR, 'decoder_' + cfg.TEST.checkpoint)
 
         assert os.path.exists(cfg.MODEL.weights_encoder) and \
             os.path.exists(cfg.MODEL.weights_decoder), "checkpoint does not exitst!"
@@ -115,9 +116,9 @@ class SemanticSegmentation:
         segmentation_module.cuda()
         segmentation_module.eval()
 
-        colors = loadmat('data/color150.mat')['colors']
+        colors = loadmat(self.cwd + 'data/color150.mat')['colors']
         names = {}
-        with open('data/object150_info.csv') as f:
+        with open(self.cwd + 'data/object150_info.csv') as f:
             reader = csv.reader(f)
             next(reader)
             for row in reader:
