@@ -32,19 +32,14 @@ class SemanticSegmentation:
         #init node
         self.node_name = "semantic_segmentation"
         rospy.init_node(self.node_name)
-        # rospy.on_shutdown(cv2.destroyAllWindows())
 
         #init_model
         self.bridge = CvBridge()
-        self.cwd = "/home/yoshiki/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"
-        self.cfg_fpath = self.cwd + "config/ade20k-resnet50dilated-ppm_deepsup.yaml"
+        self.cwd = "/home/amsl/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"
+        self.cfg_fpath = self.cwd + "config/ade20k-mobilenetv2dilated-c1_deepsup.yaml"
+        # self.cfg_fpath = self.cwd + "config/ade20k-resnet50dilated-ppm_deepsup.yaml"
         self.gpu = 0
         cfg.merge_from_file(self.cfg_fpath)
-        # cfg.merge_from_list(args.opts)
-        #cfg.freeze()
-        # cfg.list_test=[{'fpath_img' : "/home/yoshiki/semantic-segmentation-pytorch/ikuta2.jpg"}]
-
-
 
         cfg.MODEL.arch_encoder = cfg.MODEL.arch_encoder.lower()
         cfg.MODEL.arch_decoder = cfg.MODEL.arch_decoder.lower()
@@ -58,14 +53,14 @@ class SemanticSegmentation:
         assert os.path.exists(cfg.MODEL.weights_encoder) and \
             os.path.exists(cfg.MODEL.weights_decoder), "checkpoint does not exitst!"
 
-
         self.segmentation_module, self.colors, self.names = self.init_module()
 
-        self.image_sub = rospy.Subscriber("/grasscam/image_raw/compressed", CompressedImage, self.image_callback, queue_size = 1)
+        self.image_sub = rospy.Subscriber("/CompressedImage", CompressedImage, self.image_callback, queue_size = 1)
         self.image_pub = rospy.Publisher("/segmentation", Image, queue_size=1)
 
     def image_callback(self, ros_image_compressed):
         try:
+
             np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
             input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
@@ -84,16 +79,8 @@ class SemanticSegmentation:
             collate_fn=user_scattered_collate,
             num_workers=5,
             drop_last=True)
-        # self.loader.image = input_image
         self.test(loader_test)
 
-        # msg=Image()
-        # msg.header.stamp=rospy.Time.now()
-        # msg.height = input_image.height
-        # msg.width = input_image.width
-        # msg.encoding="rgb8"
-        # msg.data = np.array(input_image).tobytes()
-        # self.image_pub.publish(msg)
     def init_module(self):
         torch.cuda.set_device(self.gpu)
 
@@ -137,9 +124,6 @@ class SemanticSegmentation:
         pred_color = colorEncode(pred, self.colors).astype(np.uint8)
 
         # aggregate images and save
-        # im_vis = np.concatenate((img, pred_color), axis=1)
-
-        # img_name = info.split('/')[-1]
         pred_color=PILIMAGE.fromarray(pred_color)
         msg=Image()
         msg.header.stamp=rospy.Time.now()
@@ -147,6 +131,8 @@ class SemanticSegmentation:
         msg.width = pred_color.width
         msg.encoding="rgb8"
         msg.data = np.array(pred_color).tobytes()
+        msg.header.frame_id = "camera_color_optical_frame"
+        msg.step = msg.width*3
         self.image_pub.publish(msg)
 
 
