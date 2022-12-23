@@ -35,7 +35,7 @@ class SemanticSegmentation:
 
         #init_model
         self.bridge = CvBridge()
-        self.cwd = "/home/amsl/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"
+        self.cwd = "/home/yoshiki/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"
         self.cfg_fpath = self.cwd + "config/ade20k-mobilenetv2dilated-c1_deepsup.yaml"
         # self.cfg_fpath = self.cwd + "config/ade20k-resnet50dilated-ppm_deepsup.yaml"
         self.gpu = 0

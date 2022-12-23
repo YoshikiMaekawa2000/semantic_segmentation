@@ -1,4 +1,4 @@
-# MODEL_NAME=ade20k-resnet50dilated-ppm_deepsup
+MODEL_NAME=ade20k-resnet50dilated-ppm_deepsup
 MODEL_NAME=ade20k-mobilenetv2dilated-c1_deepsup
 MODEL_PATH=ckpt/$MODEL_NAME
 RESULT_PATH=./
