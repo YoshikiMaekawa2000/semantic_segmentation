@@ -2,8 +2,6 @@
 import rospy
 import cv2
 import sys, os
-# os.getcwd()
-# sys.path.append(os.path.join("/home/yoshiki/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"))
 sys.path.append(os.pardir)
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
@@ -58,18 +56,13 @@ class SemanticSegmentation:
         self.image_sub = rospy.Subscriber("/CompressedImage", CompressedImage, self.image_callback, queue_size = 1)
         self.image_pub = rospy.Publisher("/segmentation", Image, queue_size=1)
 
-    def image_callback(self, ros_image_compressed):
-        try:
+        rospy.Timer(rospy.Duration(1.0), self.timerCallback)
 
-            np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
-            input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
-            input_image = PILIMAGE.fromarray(input_image)
-        except CvBridgeError as e:
-            print(e)
+
+    def timerCallback(self, event):
 
         dataset_test = TestDataset(
-            input_image,
+            self.input_image,
             cfg.DATASET,
             )
         loader_test = torch.utils.data.DataLoader(
@@ -80,6 +73,36 @@ class SemanticSegmentation:
             num_workers=5,
             drop_last=True)
         self.test(loader_test)
+
+    def image_callback(self, ros_image_compressed):
+
+
+        try:
+
+            np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
+            input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+            input_image = PILIMAGE.fromarray(input_image)
+        except CvBridgeError as e:
+            print(e)
+
+        self.input_image = input_image
+
+
+        # dataset_test = TestDataset(
+        #     input_image,
+        #     cfg.DATASET,
+        #     )
+        # loader_test = torch.utils.data.DataLoader(
+        #     dataset_test,
+        #     batch_size=cfg.TEST.batch_size,
+        #     shuffle=False,
+        #     collate_fn=user_scattered_collate,
+        #     num_workers=5,
+        #     drop_last=True)
+        # # self.test(loader_test)
+
+
 
     def init_module(self):
         torch.cuda.set_device(self.gpu)
