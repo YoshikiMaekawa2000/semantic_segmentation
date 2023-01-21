@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+<launch>
+    <node name="panorama_segmentation" pkg="semantic_segmentation" type="panorama_segmentation.py" output="screen">
+        <remap from="/CompressedImage" to="/equirectangular/image_raw/compressed" />
+    </node>
+
+    <!-- <node name="republish" type="republish" pkg="image_transport" output="screen" -->
+    <!--     args="compressed in:=/equirectangular/image_raw raw out:=/equirectangular/image_raw" /> -->
+
+
+
+
+
+
+    <node pkg="rosbag" type="play" name="play" args="/home/amsl/bag_files/kakunin_theta_2022-09-17-15-19-28.bag" />
+
+    <node pkg="rviz" type="rviz" name="rviz" />
+</launch>

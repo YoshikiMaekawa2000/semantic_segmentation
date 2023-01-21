@@ -26,57 +26,30 @@ from mit_semseg.lib.utils import as_numpy
 from PIL import Image as PILIMAGE
 from mit_semseg.config import cfg
 
-class SemanticSegmentation:
+class Panorama2Image:
     def __init__(self):
         #init node
-        self.node_name = "semantic_segmentation"
+        self.node_name = "Panorama2Image"
         rospy.init_node(self.node_name)
 
         #init_model
         self.bridge = CvBridge()
-        self.cwd = "/home/amsl/ros_catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"
-        self.cfg_fpath = self.cwd + "config/ade20k-mobilenetv2dilated-c1_deepsup.yaml"
-        # self.cfg_fpath = self.cwd + "config/ade20k-resnet50dilated-ppm_deepsup.yaml"
-        self.gpu = 0
-        cfg.merge_from_file(self.cfg_fpath)
-
-        cfg.MODEL.arch_encoder = cfg.MODEL.arch_encoder.lower()
-        cfg.MODEL.arch_decoder = cfg.MODEL.arch_decoder.lower()
-
-        # absolute paths of model weights
-        cfg.MODEL.weights_encoder = os.path.join(
-            self.cwd, cfg.DIR, 'encoder_' + cfg.TEST.checkpoint)
-        cfg.MODEL.weights_decoder = os.path.join(
-            self.cwd, cfg.DIR, 'decoder_' + cfg.TEST.checkpoint)
-
-        assert os.path.exists(cfg.MODEL.weights_encoder) and \
-            os.path.exists(cfg.MODEL.weights_decoder), "checkpoint does not exitst!"
-
-        self.segmentation_module, self.colors, self.names = self.init_module()
 
         self.image_sub = rospy.Subscriber("/CompressedImage", CompressedImage, self.image_callback, queue_size = 1)
-        self.image_pub = rospy.Publisher("/segmentation", Image, queue_size=1)
+        self.image_pub1 = rospy.Publisher("/Image1", Image, queue_size=1)
+        self.image_pub2 = rospy.Publisher("/Image2", Image, queue_size=1)
 
     def image_callback(self, ros_image_compressed):
         try:
-
             np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
             input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
             input_image = PILIMAGE.fromarray(input_image)
         except CvBridgeError as e:
             print(e)
-        input_img_list=[]
-
-        # cropped = input_image.crop((0,0,500,500))
-        for num in range(4):
-            input_img_list.append(input_image.crop((left, upper, right, lower))
-
-
-        # input_img_list.append(cropped)
 
         dataset_test = TestDataset(
-            input_img_list,
+            input_image,
             cfg.DATASET,
             )
         loader_test = torch.utils.data.DataLoader(
@@ -145,7 +118,7 @@ class SemanticSegmentation:
 
     def test(self, loader):
         # segmentation_module.eval()
-        pred_list = []
+
         for batch_data in loader:
             # process data
             batch_data = batch_data[0]
@@ -170,18 +143,10 @@ class SemanticSegmentation:
 
                 _, pred = torch.max(scores, dim=1)
                 pred = as_numpy(pred.squeeze(0).cpu())
-                pred_list.append(pred)
 
-# 　　　　result = PILIMAGE.new("RGB", (1280, 331))
-        for pred in pred_list:
-            # result.paste(pred, (upper, left))
-            print(type(pred))
-
-
-
-        #visualization
-        self.visualize_result(pred)
+            #visualization
+            self.visualize_result(pred)
 
 if __name__=="__main__":
-    SemanticSegmentation()
+    Panorama2Image()
     rospy.spin()

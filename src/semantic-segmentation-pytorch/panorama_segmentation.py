@@ -2,9 +2,6 @@
 import rospy
 import cv2
 import sys, os
-# os.getcwd()
-# sys.path.append(os.path.join("/home/yoshiki/catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"))
-sys.path.append(os.pardir)
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -17,6 +14,7 @@ import torch
 import torch.nn as nn
 from scipy.io import loadmat
 import csv
+import py360convert
 # Our libs
 from mit_semseg.dataset import TestDataset
 from mit_semseg.models import ModelBuilder, SegmentationModule
@@ -28,21 +26,17 @@ from mit_semseg.config import cfg
 
 class SemanticSegmentation:
     def __init__(self):
-        #init node
+
         self.node_name = "semantic_segmentation"
         rospy.init_node(self.node_name)
 
-        #init_model
-        self.bridge = CvBridge()
         self.cwd = "/home/amsl/ros_catkin_ws/src/semantic_segmentation/src/semantic-segmentation-pytorch/"
-        self.cfg_fpath = self.cwd + "config/ade20k-mobilenetv2dilated-c1_deepsup.yaml"
-        # self.cfg_fpath = self.cwd + "config/ade20k-resnet50dilated-ppm_deepsup.yaml"
+        self.cfg_fpath = self.cwd + "config/ade20k-resnet50dilated-ppm_deepsup.yaml"
         self.gpu = 0
-        cfg.merge_from_file(self.cfg_fpath)
 
+        cfg.merge_from_file(self.cfg_fpath)
         cfg.MODEL.arch_encoder = cfg.MODEL.arch_encoder.lower()
         cfg.MODEL.arch_decoder = cfg.MODEL.arch_decoder.lower()
-
         # absolute paths of model weights
         cfg.MODEL.weights_encoder = os.path.join(
             self.cwd, cfg.DIR, 'encoder_' + cfg.TEST.checkpoint)
@@ -54,29 +48,15 @@ class SemanticSegmentation:
 
         self.segmentation_module, self.colors, self.names = self.init_module()
 
-        self.image_sub = rospy.Subscriber("/CompressedImage", CompressedImage, self.image_callback, queue_size = 1)
+        self.image_sub = rospy.Subscriber("/CompressedImage",CompressedImage, self.image_callback, queue_size = 1)
         self.image_pub = rospy.Publisher("/segmentation", Image, queue_size=1)
 
-    def image_callback(self, ros_image_compressed):
-        try:
+        rospy.Timer(rospy.Duration(1.0), self.timerCallback)
 
-            np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
-            input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
-            input_image = PILIMAGE.fromarray(input_image)
-        except CvBridgeError as e:
-            print(e)
-        input_img_list=[]
-
-        # cropped = input_image.crop((0,0,500,500))
-        for num in range(4):
-            input_img_list.append(input_image.crop((left, upper, right, lower))
-
-
-        # input_img_list.append(cropped)
+    def timerCallback(self, event):
 
         dataset_test = TestDataset(
-            input_img_list,
+            self.input_img_list,
             cfg.DATASET,
             )
         loader_test = torch.utils.data.DataLoader(
@@ -86,11 +66,55 @@ class SemanticSegmentation:
             collate_fn=user_scattered_collate,
             num_workers=5,
             drop_last=True)
+
         self.test(loader_test)
+
+    def image_callback(self, ros_image_compressed):
+
+        #CompressedImage to ndarray
+        try:
+            np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
+            input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+            input_image = PILIMAGE.fromarray(input_image)
+        except CvBridgeError as e:
+            print(e)
+
+        #equirectangular to cubemap
+        # cube = py360convert.e2c(input_image, 320)
+        # cube_h = py360convert.cube_dice2h(cube)
+        # cube_list = py360convert.cube_h2list(cube_h)
+        #
+        # input_img_list=[]
+        # for img in cube_list:
+        #     input_img_list.append(PILIMAGE.fromarray(img))
+
+        input_img_list=[]
+        left= 0
+        upper=0
+        right = input_image.height
+        lower = input_image.height
+        for num in range(4):
+            input_img_list.append(input_image.crop((left, upper, right, lower)))
+            left += input_image.height
+            right += input_image.height
+
+        self.input_img_list=input_img_list
+
+        # msg=Image()
+        # msg.header.stamp=self.Time
+        # msg.height = re_e.shape[0]
+        # msg.width = re_e.shape[1]
+        # msg.encoding="rgb8"
+        # msg.data = re_e.tobytes()
+        # msg.header.frame_id = "camera_color_optical_frame"
+        # msg.step = msg.width*3
+        # self.image_pub.publish(msg)
+
+
 
     def init_module(self):
         torch.cuda.set_device(self.gpu)
-
         # Network Builders
         net_encoder = ModelBuilder.build_encoder(
             arch=cfg.MODEL.arch_encoder,
@@ -127,8 +151,10 @@ class SemanticSegmentation:
         pixs = pred.size
         uniques, counts = np.unique(pred, return_counts=True)
 
+        # print(pred.shape)
         # colorize prediction
         pred_color = colorEncode(pred, self.colors).astype(np.uint8)
+
 
         # aggregate images and save
         pred_color=PILIMAGE.fromarray(pred_color)
@@ -144,7 +170,7 @@ class SemanticSegmentation:
 
 
     def test(self, loader):
-        # segmentation_module.eval()
+
         pred_list = []
         for batch_data in loader:
             # process data
@@ -172,16 +198,26 @@ class SemanticSegmentation:
                 pred = as_numpy(pred.squeeze(0).cpu())
                 pred_list.append(pred)
 
-# 　　　　result = PILIMAGE.new("RGB", (1280, 331))
-        for pred in pred_list:
-            # result.paste(pred, (upper, left))
-            print(type(pred))
+        result = np.concatenate([pred_list[0], pred_list[1], pred_list[2], pred_list[3]], 1)
 
 
 
-        #visualization
-        self.visualize_result(pred)
+
+        # cube_h = py360convert.cube_list2h(pred_list)
+        #
+        # # cube_h.expand_dims(np.zeros((3))
+        # cube_h = np.expand_dims(cube_h, 2)
+        # cubemap = py360convert.cube_h2dice(cube_h)
+        # # pred = py360convert.c2e(cubemap, 320, 1280)
+        # pred = py360convert.c2e(cubemap, 331, 1280)
+        #
+        # pred = np.squeeze(pred, 2)
+
+        # visualization
+        self.visualize_result(result)
+
 
 if __name__=="__main__":
     SemanticSegmentation()
     rospy.spin()
+
