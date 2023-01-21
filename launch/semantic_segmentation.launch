@@ -3,9 +3,14 @@
 <launch>
     <!-- <node name="semantic_segmentation" pkg="semantic_segmentation" type="multi_gpu_segmentation.py"> -->
     <node name="semantic_segmentation" pkg="semantic_segmentation" type="semantic_segmentation.py">
+<<<<<<< HEAD
         <!-- <remap from="/CompressedImage" to="/camera/color/image_raw/compressed" /> -->
         <remap from="/CompressedImage" to="/equirectangular/image_raw/compressed" />
         <!-- <remap from="/CompressedImage" to="/usb_cam/image_raw/compressed" /> -->
+=======
+        <remap from="/CompressedImage" to="/camera/color/image_raw/compressed" />
+        <!-- <remap from="/CompressedImage" to="/equirectangular/image_raw/compressed" /> -->
+>>>>>>> d0b8a6fb06b5a876e81513dd7e9842d0fc61e476
     </node>
 
 
@@ -13,9 +18,14 @@
 
 
 
+<<<<<<< HEAD
     <!-- <node pkg="rosbag" type="play" name="play" args="/home/amsl/bag_files/data.bag" /> -->
     <node pkg="rosbag" type="play" name="play" args="/home/amsl/bag_files/kakunin_theta_2022-09-17-15-19-28.bag" />
     <!-- <node pkg="rosbag" type="play" name="play" args="/home/amsl/bag_files/2021-10-24-11-30-05.bag" /> -->
+=======
+    <node pkg="rosbag" type="play" name="play" args="/home/amsl/bag_files/data.bag" />
+    <!-- <node pkg="rosbag" type="play" name="play" args="/home/amsl/bag_files/kakunin_theta_2022-09-17-15-19-28.bag" /> -->
+>>>>>>> d0b8a6fb06b5a876e81513dd7e9842d0fc61e476
 
     <node pkg="rviz" type="rviz" name="rviz" />
 </launch>
