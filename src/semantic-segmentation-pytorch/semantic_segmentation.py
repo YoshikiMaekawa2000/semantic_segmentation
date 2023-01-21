@@ -58,18 +58,13 @@ class SemanticSegmentation:
         self.image_sub = rospy.Subscriber("/CompressedImage", CompressedImage, self.image_callback, queue_size = 1)
         self.image_pub = rospy.Publisher("/segmentation", Image, queue_size=1)
 
-    def image_callback(self, ros_image_compressed):
-        try:
+        rospy.Timer(rospy.Duration(1.0), self.timerCallback)
 
-            np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
-            input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
-            input_image = PILIMAGE.fromarray(input_image)
-        except CvBridgeError as e:
-            print(e)
+    def timerCallback(self, event):
+
 
         dataset_test = TestDataset(
-            input_image,
+            self.input_image,
             cfg.DATASET,
             )
         loader_test = torch.utils.data.DataLoader(
@@ -80,6 +75,31 @@ class SemanticSegmentation:
             num_workers=5,
             drop_last=True)
         self.test(loader_test)
+
+    def image_callback(self, ros_image_compressed):
+        try:
+
+            np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
+            input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+            input_image = PILIMAGE.fromarray(input_image)
+        except CvBridgeError as e:
+            print(e)
+
+        self.input_image = input_image
+
+        # dataset_test = TestDataset(
+        #     input_image,
+        #     cfg.DATASET,
+        #     )
+        # loader_test = torch.utils.data.DataLoader(
+        #     dataset_test,
+        #     batch_size=cfg.TEST.batch_size,
+        #     shuffle=False,
+        #     collate_fn=user_scattered_collate,
+        #     num_workers=5,
+        #     drop_last=True)
+        # self.test(loader_test)
 
     def init_module(self):
         torch.cuda.set_device(self.gpu)
@@ -131,7 +151,7 @@ class SemanticSegmentation:
         msg.width = pred_color.width
         msg.encoding="rgb8"
         msg.data = np.array(pred_color).tobytes()
-        msg.header.frame_id = "camera_color_optical_frame"
+        msg.header.frame_id = "camera"
         msg.step = msg.width*3
         self.image_pub.publish(msg)
 
@@ -164,8 +184,8 @@ class SemanticSegmentation:
                 _, pred = torch.max(scores, dim=1)
                 pred = as_numpy(pred.squeeze(0).cpu())
 
-            #visualization
-            self.visualize_result(pred)
+        #visualization
+        self.visualize_result(pred)
 
 if __name__=="__main__":
     SemanticSegmentation()
