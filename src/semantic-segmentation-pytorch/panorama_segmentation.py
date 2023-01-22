@@ -53,6 +53,9 @@ class SemanticSegmentation:
 
         rospy.Timer(rospy.Duration(1.0), self.timerCallback)
 
+        self.four_devide =1
+        self.cube_devide = 0
+
     def timerCallback(self, event):
 
         dataset_test = TestDataset(
@@ -76,28 +79,40 @@ class SemanticSegmentation:
             np_arr = np.frombuffer(ros_image_compressed.data, np.uint8)
             input_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
             input_image = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
+
             input_image = PILIMAGE.fromarray(input_image)
         except CvBridgeError as e:
             print(e)
 
-        #equirectangular to cubemap
-        # cube = py360convert.e2c(input_image, 320)
-        # cube_h = py360convert.cube_dice2h(cube)
-        # cube_list = py360convert.cube_h2list(cube_h)
-        #
-        # input_img_list=[]
-        # for img in cube_list:
-        #     input_img_list.append(PILIMAGE.fromarray(img))
 
-        input_img_list=[]
-        left= 0
-        upper=0
-        right = input_image.height
-        lower = input_image.height
-        for num in range(4):
-            input_img_list.append(input_image.crop((left, upper, right, lower)))
-            left += input_image.height
-            right += input_image.height
+        if(self.cube_devide):
+
+            left_img = input_image.crop((0, 0, 640, 331))
+            right_img = input_image.crop((640, 0, 1280, 331))
+
+            imgs = [np.array(left_img, dtype=np.uint8), np.array(right_img, dtype=np.uint8)]
+
+
+            # equirectangular to cubemap
+            input_img_list=[]
+            for img in imgs:
+                cube = py360convert.e2c(img, 160)
+                cube_h = py360convert.cube_dice2h(cube)
+                cube_list = py360convert.cube_h2list(cube_h)
+
+                for img in cube_list:
+                    input_img_list.append(PILIMAGE.fromarray(img))
+
+        if(self.four_devide):
+            input_img_list=[]
+            left= 0
+            upper=0
+            right = input_image.height
+            lower = input_image.height
+            for num in range(4):
+                input_img_list.append(input_image.crop((left, upper, right, lower)))
+                left += input_image.height
+                right += input_image.height
 
         self.input_img_list=input_img_list
 
@@ -198,23 +213,24 @@ class SemanticSegmentation:
                 pred = as_numpy(pred.squeeze(0).cpu())
                 pred_list.append(pred)
 
-        result = np.concatenate([pred_list[0], pred_list[1], pred_list[2], pred_list[3]], 1)
+        if(self.four_devide):
+            pred = np.concatenate([pred_list[0], pred_list[1], pred_list[2], pred_list[3]], 1)
 
 
 
+        if(self.cube_devide):
+            cube_h_left = py360convert.cube_list2h(pred_list[0:6])
 
-        # cube_h = py360convert.cube_list2h(pred_list)
-        #
-        # # cube_h.expand_dims(np.zeros((3))
-        # cube_h = np.expand_dims(cube_h, 2)
-        # cubemap = py360convert.cube_h2dice(cube_h)
-        # # pred = py360convert.c2e(cubemap, 320, 1280)
-        # pred = py360convert.c2e(cubemap, 331, 1280)
-        #
-        # pred = np.squeeze(pred, 2)
+        # cube_h.expand_dims(np.zeros((3))
+            cube_h_left = np.expand_dims(cube_h_left, 2)
+            cubemap_left = py360convert.cube_h2dice(cube_h_left)
+            # pred = py360convert.c2e(cubemap, 320, 1280)
+            pred = py360convert.c2e(cubemap_left, 331, 1280)
+
+            pred = np.squeeze(pred, 2)
 
         # visualization
-        self.visualize_result(result)
+        self.visualize_result(pred)
 
 
 if __name__=="__main__":
